@@ -4,11 +4,20 @@ namespace CodingTracker;
 
 class SqlAccess
 {
+    private const string ConnectionString = "Data Source=./codeTime.db;Version=3;";
+
+    internal class Log
+    {
+        public long Id { get; set; }
+        public string? Duration { get; set; }
+        public string? Date { get; set; }
+    }
+
     protected static void Execute(string query)
     {
         try
         {
-            using SQLiteConnection con = new("Data Source=./codeTime.db;Version=3;");
+            using SQLiteConnection con = new(ConnectionString);
             con.Open();
             using var cmd = new SQLiteCommand(query, con);
             cmd.ExecuteNonQuery();
@@ -20,13 +29,32 @@ class SqlAccess
         }
     }
 
-    public static void GetLogs(string query = @"select * from logs")
+    public static int GetLogsCount()
     {
-        using (SQLiteConnection con = new("Data Source=./codeTime.db;Version=3;"))
+        using SQLiteConnection con = new(ConnectionString);
+        con.Open();
+        using var reader = new SQLiteCommand("select count(*) from logs", con).ExecuteReader();
+        reader.Read();
+        return reader.GetInt32(0);
+    }
+
+    public static void ShowLogs(string query = @"select * from logs")
+    {
+        var logs = GetLogs(query);
+        if (logs is null) return;
+
+        logs.DisplayTable("No logs to display. Type 'help' to learn how to log your first workout!");
+    }
+
+    public static List<Log>? GetLogs(string query)
+    {
+        try
         {
+            using SQLiteConnection con = new(ConnectionString);
             con.Open();
             using var cmd = new SQLiteCommand(query, con);
             var reader = cmd.ExecuteReader();
+            var logs = new List<Log>();
 
             while (reader.Read())
             {
@@ -37,16 +65,32 @@ class SqlAccess
                 var duration = rawDuration.Hour + hoursSuffix;
 
                 if (rawDuration.Minute != 0) duration = duration + " and " + rawDuration.Minute + minuteSuffix;
-                Console.WriteLine($"{reader["id"]}: {duration} on {time}");
+                logs.Add(new Log { Id = Convert.ToInt64(reader["id"]), Duration = duration, Date = time });
             }
+
+            return logs;
         }
+
+        catch
+        {
+            Console.WriteLine("An unknown error occurred while trying to read your logs.");
+            return null;
+        }
+    }
+
+    internal static bool LogExists(int id)
+    {
+        using SQLiteConnection con = new(ConnectionString);
+        con.Open();
+        using var cmd = new SQLiteCommand($"select count(*) from logs WHERE id='{id}'", con);
+        return (long)cmd.ExecuteScalar() == 1;
     }
 
     public static void CreateTable()
     {
         try
         {
-            using SQLiteConnection con = new("Data Source=./codeTime.db;Version=3;");
+            using SQLiteConnection con = new(ConnectionString);
             con.Open();
 
             var cmd = new SQLiteCommand(@"SELECT name FROM sqlite_master WHERE type='table' AND name='logs'", con);
@@ -61,24 +105,24 @@ class SqlAccess
 
     public static void AddLog(TimeSpan duration)
     {
-        if (duration.Hours == 0 || duration.Hours > DateTime.Now.Hour) return; // Logging 0 hours isn't required, neither you code more than the number of hours already passed in the day
+        if (duration.Hours == 0) return; 
         Execute($"INSERT INTO logs(hours) VALUES({duration.Ticks});");
         Console.WriteLine("Your hours have been logged!");
-        GetLogs(@"select * from logs ORDER BY id DESC LIMIT 5");
+        ShowLogs(@"select * from logs ORDER BY id DESC LIMIT 5");
     }
 
     public static void RemoveLog(int index)
     {
         Execute($"DELETE FROM logs WHERE id = {index};");
-        Console.WriteLine($"Log at {index} has been removed.");
-        GetLogs(@"select * from logs ORDER BY id DESC LIMIT 5");
+        Console.WriteLine($"The log at {index} has been removed.");
+        ShowLogs(@"select * from logs ORDER BY id DESC LIMIT 5");
     }
 
     public static void RemoveLastLog()
     {
         Execute(@"DELETE FROM logs WHERE id = (SELECT MAX(id) FROM logs);");
         Console.WriteLine("The last log has been removed.");
-        GetLogs(@"select * from logs ORDER BY id DESC LIMIT 3");
+        ShowLogs(@"select * from logs ORDER BY id DESC LIMIT 3");
     }
 
     public static void UpdateLog(int id, TimeSpan duration)
@@ -86,6 +130,6 @@ class SqlAccess
         if (duration.Hours == 0 || duration.Hours > DateTime.Now.Hour) return;
         Execute($"UPDATE logs SET hours = {duration.Ticks}  WHERE id = {id}");
         Console.WriteLine("Updated successfully.");
-        GetLogs($"select * from logs WHERE id BETWEEN {id - 2} and {id + 2}");
+        ShowLogs($"select * from logs WHERE id BETWEEN {id - 2} and {id + 2}");
     }
 }

@@ -1,20 +1,82 @@
 ﻿using System.Globalization;
+using ConsoleTableExt;
 
 namespace CodingTracker;
 
-class Helpers
+public static class Extensions
 {
-    public static string AddFormatErrorMessage = "Add commands should be in this format: 'add [duration]'. \nFor example: 'add 5:30' means 5 hours and 30 minutes.";
-
-    public static string RemoveFormatErrorMessage = "Remove commands should be in this format: 'remove [id]'. \nFor example: 'remove 3' deletes the third log.";
-
-    public static string UpdateFormatErrorMessage = "Update commands should be in this format: 'update [log id] [hours]''. \nFor example: 'update 3 8' changes the number of hours in row 3.";
-
-    public static TimeSpan? SplitTime(string command, string keyword, string errorMessage)
+    private static readonly Dictionary<HeaderCharMapPositions, char> HeaderCharacterMap = new()
     {
+        { HeaderCharMapPositions.TopLeft, '╒' },
+        { HeaderCharMapPositions.TopCenter, '╤' },
+        { HeaderCharMapPositions.TopRight, '╕' },
+        { HeaderCharMapPositions.BottomLeft, '╞' },
+        { HeaderCharMapPositions.BottomCenter, '╪' },
+        { HeaderCharMapPositions.BottomRight, '╡' },
+        { HeaderCharMapPositions.BorderTop, '═' },
+        { HeaderCharMapPositions.BorderRight, '│' },
+        { HeaderCharMapPositions.BorderBottom, '═' },
+        { HeaderCharMapPositions.BorderLeft, '│' },
+        { HeaderCharMapPositions.Divider, '│' },
+    };
+
+    public static void DisplayTable<T>(this List<T> records, string emptyMessage) where T : class
+    {
+        if (records.Count == 0)
+        {
+            Console.WriteLine(emptyMessage);
+            return;
+        }
+
+        ConsoleTableBuilder.From(records)
+            .WithCharMapDefinition(CharMapDefinition.FramePipDefinition, HeaderCharacterMap)
+            .ExportAndWriteLine();
+    }
+
+    private static string FormatErrorMessages(string command) => command switch
+    {
+        "add" => "Add commands should be in this format: 'add [duration]'. \nFor example: 'add 5:30' means 5 hours and 30 minutes." ,
+        "remove" => "Remove commands should be in this format: 'remove [id]'. \nFor example: 'remove 3' deletes the third log.",
+        "update" => "Update commands should be in this format: 'update [log id] [hours]''. \nFor example: 'update 3 8' changes the number of hours in row 3 to 8 hours.",
+        _ => "An unknown error occurred while parsing your command."
+    };
+
+    public static int GetNumber(this string str, string keyword)
+    {
+        _ = int.TryParse(
+              str.RemoveKeyword(keyword),
+              NumberStyles.Any,
+              NumberFormatInfo.InvariantInfo,
+              out int number);
+
+        return number;
+    }
+
+    public static string? RemoveKeyword(this string str, string keyword)
+    {
+        var errorMessage = FormatErrorMessages(keyword);
+
         try
         {
-            var time = command.RemoveKeyword(keyword, errorMessage);
+            return str.Replace(keyword + " ", "");
+        }
+
+        catch (FormatException)
+        {
+            if (!string.IsNullOrEmpty(errorMessage))
+                Console.WriteLine(errorMessage);
+
+            return string.Empty;
+        }
+    }
+
+    public static TimeSpan? SplitTime(this string command, string keyword = "")
+    {
+        var errorMessage = FormatErrorMessages(keyword);
+
+        try
+        {
+            var time = command.RemoveKeyword(keyword);
             if (string.IsNullOrEmpty(time)) return null;
 
             if (time.Contains(':'))
@@ -32,35 +94,17 @@ class Helpers
             return null;
         }
     }
-}
 
-public static class Extensions
-{
-    public static int GetNumber(this string str, string keyword, string errorMessage = "")
+    public static bool IsInvalidForUpdate(this string command)
     {
-        var command = str.RemoveKeyword(keyword, errorMessage);
-        _ = int.TryParse(
-              Convert.ToString(command),
-              NumberStyles.Any,
-              NumberFormatInfo.InvariantInfo,
-              out int number);
-
-        return number;
-    }
-
-    public static string? RemoveKeyword(this string str, string keyword, string errorMessage = "")
-    {
-        try
+        if (command.Split().Length < 3)
         {
-            return str.Replace(keyword + " ", "");
+            Console.WriteLine(FormatErrorMessages("update"));
+            return true;
         }
 
-        catch (FormatException)
-        {
-            if (!string.IsNullOrEmpty(errorMessage))
-                Console.WriteLine(errorMessage);
-
-            return string.Empty;
-        }
+        return false;
     }
+
+    public static bool IsDurationValid(this TimeSpan duration) => duration.TotalHours < 24;
 }

@@ -1,4 +1,4 @@
-# Code Time
+# CodingTracker
 A simple code time manager for you to measure your progress!
 ### Usage and help:
 ##### Note: Use help to display this message

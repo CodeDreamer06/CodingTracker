@@ -9,7 +9,7 @@ class Program
   It's a simple code time manager to measure your progress!
 * exit or 0: stop the program
 * show: display logs
-* add [hours]: insert data into the database
+* add [hours, optional: minutes]: insert data into the database
 * update [id] [hours]: change existing data
 * remove [id]: delete a log
 ";
@@ -27,9 +27,13 @@ class Program
 
             else if (command.StartsWith("add"))
             {
-                var duration = Helpers.SplitTime(rawCommand, "add", Helpers.AddFormatErrorMessage);
+                var duration = rawCommand.SplitTime("add");
                 if (duration is null) continue;
-                SqlAccess.AddLog(duration.Value);
+
+                if (!duration.Value.IsDurationValid())
+                    Console.WriteLine("You can't code all day! Didn't you spend some time logging this? ;)");
+
+                else SqlAccess.AddLog(duration.Value);
             }
 
             else if (command.StartsWith("remove"))
@@ -40,22 +44,43 @@ class Program
                     continue;
                 }
 
-                int id = rawCommand.GetNumber("remove", Helpers.RemoveFormatErrorMessage);
+                int id = rawCommand.GetNumber("remove");
 
-                if (id == 0) Console.WriteLine("Please enter a valid number");
+                if (id == 0)
+                {
+                    Console.WriteLine("Please enter a valid number!");
+                    continue;
+                }
+
+                if (!SqlAccess.LogExists(id))
+                {
+                    Console.WriteLine("The log you are looking for doesn't exist.");
+                    continue;
+                }
+
                 SqlAccess.RemoveLog(id);
             }
 
-            else if (command == "show") SqlAccess.GetLogs();
+            else if (command == "show") SqlAccess.ShowLogs();
 
             else if (command.StartsWith("update"))
             {
-                //TODO: Update log doesn't work
+                if (command.IsInvalidForUpdate()) continue;
 
-                var duration = Helpers.SplitTime("", "update", Helpers.UpdateFormatErrorMessage);
-                var id = command.RemoveKeyword("update", Helpers.UpdateFormatErrorMessage)!.GetNumber("");
+                var commandProperties = command.RemoveKeyword("update");
+                if (commandProperties is null) continue;
 
-                SqlAccess.UpdateLog(id, duration!.Value);
+                var id = commandProperties.Split()[0].GetNumber("");
+                var duration = commandProperties.Split()[1].SplitTime();
+                 if (duration is null) continue;
+
+                if (!SqlAccess.LogExists(id))
+                {
+                    Console.WriteLine("The log you are looking for doesn't exist.");
+                    continue;
+                }
+
+                SqlAccess.UpdateLog(id, duration.Value);
             }
 
             else if (string.IsNullOrWhiteSpace(command)) continue;
