@@ -2,7 +2,7 @@
 
 class Program
 {
-    static void Main(string[] args)
+    static void Main()
     {
         const string help = @"
 # Welcome to Code Time!
@@ -38,7 +38,7 @@ class Program
 
             else if (command.StartsWith("remove"))
             {
-                if (rawCommand == "remove")
+                if (rawCommand is "remove")
                 {
                     SqlAccess.RemoveLastLog();
                     continue;
@@ -72,6 +72,7 @@ class Program
 
                 var id = commandProperties.Split()[0].GetNumber("");
                 var duration = commandProperties.Split()[1].SplitTime();
+
                  if (duration is null) continue;
 
                 if (!SqlAccess.LogExists(id))
@@ -84,6 +85,7 @@ class Program
             }
 
             else if (string.IsNullOrWhiteSpace(command)) continue;
+
             else Console.WriteLine("Not a command. Use 'help' if required.");
         }
     }

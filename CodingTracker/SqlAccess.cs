@@ -33,12 +33,12 @@ class SqlAccess
     {
         using SQLiteConnection con = new(ConnectionString);
         con.Open();
-        using var reader = new SQLiteCommand("select count(*) from logs", con).ExecuteReader();
+        using var reader = new SQLiteCommand("SELECT COUNT(*) FROM logs", con).ExecuteReader();
         reader.Read();
         return reader.GetInt32(0);
     }
 
-    public static void ShowLogs(string query = @"select * from logs")
+    public static void ShowLogs(string query = @"SELECT * FROM logs")
     {
         var logs = GetLogs(query);
         if (logs is null) return;
@@ -82,7 +82,7 @@ class SqlAccess
     {
         using SQLiteConnection con = new(ConnectionString);
         con.Open();
-        using var cmd = new SQLiteCommand($"select count(*) from logs WHERE id='{id}'", con);
+        using var cmd = new SQLiteCommand($"SELECT COUNT(*) FROM logs WHERE id='{id}'", con);
         return (long)cmd.ExecuteScalar() == 1;
     }
 
